@@ -6,6 +6,7 @@ PatchFastRL("GRPO", FastLanguageModel)
 import os
 import argparse
 from trl import GRPOConfig, GRPOTrainer
+from transformers.trainer_utils import get_last_checkpoint
 from datasets import load_dataset, Dataset
 from patch import patch_trainer_optimizer
 from utils import *
@@ -25,7 +26,20 @@ def main(args):
             f"-lora{args.lora_rank}-temp{args.temperature}-len{args.max_prompt_length}-{args.max_completion_length}-bias{bias[0]}"
             f"-actemp{args.action_temperature}-topk{args.soft_top_k}-weight{args.action_loss_weight}")
 
-    if os.path.exists(exp_name) and len(os.listdir(exp_name)) > 0:
+    # Resume support: the newest checkpoint-* in the experiment directory is
+    # picked up automatically, so a job killed by the Slurm wall clock can be
+    # resubmitted unchanged. --resume never restores the original behaviour.
+    resume_from = get_last_checkpoint(exp_name) if os.path.isdir(exp_name) else None
+
+    if args.resume == "never":
+        resume_from = None
+    elif args.resume == "must" and resume_from is None:
+        print(f"--resume must, but no checkpoint-* found in {exp_name}. Exiting...")
+        exit()
+
+    if resume_from is not None:
+        print(f"Resuming training from {resume_from}")
+    elif os.path.exists(exp_name) and len(os.listdir(exp_name)) > 0:
         print(f"Experiment {exp_name} already exists. Exiting...")
         exit()
 
@@ -105,7 +119,7 @@ def main(args):
         trainer,
         lr_action_head = args.lr_action_head,
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from)
 
 
 if __name__ == "__main__":
@@ -136,6 +150,11 @@ if __name__ == "__main__":
     parser.add_argument("--action_bias", type=float, nargs='+', default=None)
 
     parser.add_argument("--model_name", type=str, default="Qwen/Qwen2.5-1.5B-Instruct")
+    parser.add_argument("--resume", type=str, default="auto",
+                        choices=["auto", "never", "must"],
+                        help="auto: continue from the newest checkpoint in the experiment "
+                             "directory if there is one; never: refuse to touch an existing "
+                             "experiment directory; must: fail unless a checkpoint is found")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
