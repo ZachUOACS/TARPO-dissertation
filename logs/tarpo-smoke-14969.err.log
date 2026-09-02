@@ -1,0 +1,39 @@
+Sliding Window Attention is enabled but not implemented for `eager`; unexpected results may be encountered.
+Some weights of Qwen2ForCausalLM were not initialized from the model checkpoint at /data/ztay632/models/Qwen2.5-1.5B-Instruct and are newly initialized: ['action_head.head.bias', 'action_head.head.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/data/ztay632/TARPO-dissertation/utils.py:243: SyntaxWarning: invalid escape sequence '\%'
+  string = string.replace("\%", "")
+Sliding Window Attention is enabled but not implemented for `eager`; unexpected results may be encountered.
+Some weights of Qwen2ForCausalLM were not initialized from the model checkpoint at /data/ztay632/models/Qwen2.5-1.5B-Instruct and are newly initialized: ['action_head.head.bias', 'action_head.head.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Unsloth 2025.3.19 patched 28 layers with 28 QKV layers, 28 O layers and 28 MLP layers.
+Using the latest cached version of the dataset since openai/gsm8k couldn't be found on the Hugging Face Hub (offline mode is enabled).
+Found the latest cached dataset configuration 'main' at /data/ztay632/.cache/huggingface/datasets/openai___gsm8k/main/0.0.0/740312add88f781978c0658806c59bc2815b9866 (last modified on Sat Aug  8 03:56:03 2026).
+Map:   0%|          | 0/7473 [00:00<?, ? examples/s]Map: 100%|██████████| 7473/7473 [00:00<00:00, 159738.43 examples/s]
+Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 7,473 | Num Epochs = 1 | Total steps = 7,473
+O^O/ \_/ \    Batch size per device = 2 | Gradient accumulation steps = 1
+\        /    Data Parallel GPUs = 1 | Total batch size (2 x 1 x 1) = 2
+ "-____-"     Trainable parameters = 9,235,458/1,552,952,836 (0.59% trained)
+wandb: WARNING The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+wandb: Tracking run with wandb version 0.25.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /data/ztay632/wandb/wandb/offline-run-20260819_143105-avgucpar
+wandb: Detected [huggingface_hub.inference] in use.
+wandb: Use W&B Weave for improved LLM call tracing. Install Weave with `pip install weave` then add `import weave` to the top of your script.
+wandb: For more information, check out the docs at: https://weave-docs.wandb.ai/
+  0%|          | 0/7473 [00:00<?, ?it/s]Traceback (most recent call last):
+  File "/data/ztay632/TARPO-dissertation/tarpo_gsm8k.py", line 161, in <module>
+    main(args)
+  File "/data/ztay632/TARPO-dissertation/tarpo_gsm8k.py", line 122, in main
+    trainer.train(resume_from_checkpoint=resume_from)
+  File "/data/ztay632/TARPO-dissertation/transformers/trainer.py", line 2245, in train
+    return inner_training_loop(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 310, in _fast_inner_training_loop
+  File "<string>", line 25, in _unsloth_training_step
+  File "/data/ztay632/TARPO-dissertation/unsloth_compiled_cache/UnslothGRPOTrainer.py", line 1196, in _prepare_inputs
+    prompt_completion_ids, use_soft_input_mask, mixed_input_embeds, soft_topk_ids, soft_topk_weights, plain_texts, html_texts, topk_entropy, embed_dist = unwrapped_model.generate(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 9, got 4)

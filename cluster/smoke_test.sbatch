@@ -17,13 +17,17 @@ set -euo pipefail
 
 export TARPO_DIR="${TARPO_DIR:-/data/${USER}/TARPO-dissertation}"
 export HF_HUB_OFFLINE=1
-export WANDB_MODE=offline
+export WANDB_MODE="${WANDB_MODE:-online}"
 source "${TARPO_DIR}/cluster/env.sh"
 cd "$TARPO_DIR"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 
 MODEL_NAME="${MODEL_NAME:-Qwen2.5-1.5B-Instruct}"
+
+# The smoke test always recompiles: it exists to test the current source, and
+# unsloth's generated GRPOTrainer copy is never overwritten on its own.
+rm -rf unsloth_compiled_cache
 
 echo "job ${SLURM_JOB_ID:-local} on ${SLURMD_NODENAME:-$(hostname)}  ($(date))"
 nvidia-smi

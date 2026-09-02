@@ -1,0 +1,21 @@
+Sliding Window Attention is enabled but not implemented for `eager`; unexpected results may be encountered.
+Some weights of Qwen2ForCausalLM were not initialized from the model checkpoint at /data/ztay632/models/Qwen2.5-1.5B-Instruct and are newly initialized: ['action_head.head.bias', 'action_head.head.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Unsloth 2025.3.19 patched 28 layers with 28 QKV layers, 28 O layers and 28 MLP layers.
+Using the latest cached version of the dataset since openai/gsm8k couldn't be found on the Hugging Face Hub (offline mode is enabled).
+Found the latest cached dataset configuration 'main' at /data/ztay632/.cache/huggingface/datasets/openai___gsm8k/main/0.0.0/740312add88f781978c0658806c59bc2815b9866 (last modified on Tue Aug 25 18:50:40 2026).
+Map:   0%|          | 0/7473 [00:00<?, ? examples/s]Map: 100%|██████████| 7473/7473 [00:00<00:00, 156919.46 examples/s]
+Detected kernel version 4.18.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 7,473 | Num Epochs = 1 | Total steps = 935
+O^O/ \_/ \    Batch size per device = 32 | Gradient accumulation steps = 1
+\        /    Data Parallel GPUs = 1 | Total batch size (32 x 1 x 1) = 32
+ "-____-"     Trainable parameters = 36,932,610/1,580,649,988 (2.34% trained)
+wandb: WARNING The `run_name` is currently set to the same value as `TrainingArguments.output_dir`. If this was not intended, please specify a different run name by setting the `TrainingArguments.run_name` parameter.
+wandb: Tracking run with wandb version 0.25.0
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /data/ztay632/wandb/wandb/offline-run-20260828_144128-x97q2e8s
+wandb: Detected [huggingface_hub.inference] in use.
+wandb: Use W&B Weave for improved LLM call tracing. Install Weave with `pip install weave` then add `import weave` to the top of your script.
+wandb: For more information, check out the docs at: https://weave-docs.wandb.ai/
+  0%|          | 0/935 [00:00<?, ?it/s]                                         0%|          | 0/935 [00:00<?, ?it/s]  0%|          | 0/935 [00:00<?, ?it/s]

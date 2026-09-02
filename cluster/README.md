@@ -17,6 +17,7 @@ cluster/
   train_math.sbatch       MATH training                    (Slurm)
   eval.sbatch             evaluation, any benchmark        (Slurm)
   sync_wandb.sh           push offline W&B runs            (login node)
+  sync_to_cluster.sh      rsync this repo up / results down (your machine)
 ```
 
 ## Quickstart: GSM8K on Qwen2.5-1.5B
@@ -66,15 +67,46 @@ interactive work also stays inside `/data`:
 echo 'source /data/'"$UPI"'/TARPO-dissertation/cluster/env.sh' >> /data/$UPI/.bashrc
 ```
 
+### Or push from your own machine instead of cloning
+
+If you edit locally and want the cluster copy to follow, use rsync rather than a
+commit-push-pull round trip:
+
+```bash
+export CLUSTER_UPI=<your UPI>
+bash cluster/sync_to_cluster.sh push --dry-run   # see what would move
+bash cluster/sync_to_cluster.sh push
+bash cluster/sync_to_cluster.sh pull             # eval results + job logs back
+bash cluster/sync_to_cluster.sh pull-all         # whole experiments/ dir back
+```
+
+It excludes `.git/`, `experiments/`, `data/`, `logs/`, `wandb/`, `models/` and
+the `Qwen2.5-*` symlinks, so a push never touches the checkpoints, datasets or
+model files that only exist on the cluster - and because those paths are
+filtered on the sender they stay protected even if you add `--delete`. The first
+connection opens a shared SSH socket (`ControlPersist=10m`), so you type
+`<upi_password>:<2FA>` once rather than once per rsync.
+
 ## 2. Build the environment (login node, ~15 min)
 
 ```bash
 bash cluster/setup_env.sh
 ```
 
-This creates `/data/<UPI>/envs/tarpo` and installs, through the proxy:
+This creates the venv `/data/<UPI>/envs/tarpo` and installs, through the proxy:
 torch 2.6.0+cu124, xformers 0.0.29.post3, then everything in
 `requirements-cluster.txt`.
+
+Where the interpreter comes from, in order: `PYTHON_BIN` if you set it, else a
+system `python3.12/3.11/3.10`, else conda. **An existing conda under
+`/data/<UPI>` is reused** - `miniconda3`, `miniforge3`, `anaconda3`, `miniconda`,
+`mambaforge`, or whatever `conda info --base` reports - and only if none is
+found does the script download Miniforge to `/data/<UPI>/miniforge3`. Either way
+the conda side is used just to create `/data/<UPI>/envs/tarpo-py` (python 3.11)
+as the interpreter the venv is built from; the venv is what jobs activate.
+Force that path with `bash cluster/setup_env.sh --conda`, or point at a specific
+interpreter with `PYTHON_BIN=/data/<UPI>/miniconda3/envs/foo/bin/python`.
+Re-running the script reuses an existing venv rather than rebuilding it.
 
 > **Why these versions.** `./transformers`, `./trl` and `./unsloth` in the repo
 > root are *modified* copies - the TARPO `ActionHead` lives in
@@ -169,20 +201,60 @@ MODEL_NAME=Qwen2.5-3B-Instruct ACTION_BIAS="2.2 0.0" \
 sbatch cluster/train_math.sbatch                                  # 3B on MATH
 ```
 
-Defaults per script: `train_gsm8k.sbatch` = Qwen2.5-1.5B-Instruct, bias
-`4.6 0.0`, lengths 512/512; `train_math.sbatch` = Qwen2.5-3B-Instruct, bias
-`2.2 0.0`, lengths 1024/1024. Extra flags pass straight through:
-`sbatch cluster/train_gsm8k.sbatch --lora_rank 64 --max_completion_length 1024`.
+Both scripts reproduce the paper's Appendix A settings (Tables 6 and 7):
+
+| | GSM8K | MATH |
+|---|---|---|
+| group size `g` | 4 | 8 |
+| total train batch (completions/step) | 32 | 64 |
+| `per_device_train_batch_size` x accum | 32 x 1 | 64 x 1 |
+| soft token top-k | 30 | 30 |
+| train prompt / completion length | 512 / 512 | 1024 / 1024 |
+| action bias `b0` | 4.6 0.0 (1.5B, 7B) · 2.2 0.0 (3B) | same |
+| optimizer steps for 1 epoch | ceil(7473x4/32) = 935 | ~935 |
+
+Two places where HRPO (Tables 4/5) and TARPO (Tables 6/7) disagree, and what
+these scripts do about it:
+
+* **Accumulation.** HRPO reaches its total of 32 as `8 x 4`. That is the *same*
+  optimizer step as the `32 x 1` used here - identical completions, and
+  advantages are standardized within each `g`-completion group rather than per
+  micro-batch - so it is a memory knob, not a comparability one. `32 x 1`
+  samples the whole step in one `generate()` call and is roughly 2x faster on
+  one GPU. Step down to `16 x 2` or `8 x 4` only if you OOM, and note that
+  per-step wall clock is then not comparable across the two runs.
+* **GSM8K lengths.** HRPO trains at 512/512, TARPO's table says 1024/1024. The
+  scripts use 512/512 so a TARPO run is directly comparable to an HRPO baseline
+  trained the same way; GSM8K answers run ~250 tokens (HRPO Figure 10) and TARPO
+  reports shorter completions than its baselines, so the cap does not bind. For
+  MATH the papers differ only in the prompt budget (HRPO 512, TARPO 1024) - the
+  scripts take TARPO's 1024, which only widens the truncation margin.
+
+If you change either, change it for both methods.
+
+The rest of Table 6 already matches the script defaults: lr 5e-6, action-head lr
+1e-4, KL beta 0.005, weight decay 0.1, max grad norm 0.1, temperature 0.5,
+action temperature 1.0, LoRA r32 / alpha 64, cosine schedule with 0.1 warmup,
+8-bit AdamW, bf16, 1 epoch. Two things in the paper are *not* reachable from the
+CLI: the action-KL coefficient `alpha` (the code reuses `beta` for the router KL
+- see `unsloth/models/rl_replacements.py`), and Table 6's LoRA module list
+("query, key, value, dense"), where the code targets all seven q/k/v/o/gate/up/down
+projections. Leave the latter alone if you are comparing against HRPO, which
+uses the same seven.
+
+Extra flags pass straight through:
+`sbatch cluster/train_gsm8k.sbatch --lora_rank 64 --group_size 8`.
 
 The GSM8K run writes to
-`experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group8-lora32-temp0.5-len512-512-bias4.6-actemp1.0-topk10-weight0.1/`,
-checkpointing every 250 optimizer steps.
+`experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group4-lora32-temp0.5-len1024-1024-bias4.6-actemp1.0-topk30-weight0.1/`,
+checkpointing every 250 optimizer steps, plus a final checkpoint when training
+stops. `save_total_limit=3` keeps only the newest three.
 
 Evaluation (`--checkpoint_path` must be a `checkpoint-*` dir, or the experiment
 dir if you saved a final model):
 
 ```bash
-CKPT=experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group8-lora32-temp0.5-len512-512-bias4.6-actemp1.0-topk10-weight0.1/checkpoint-250 \
+CKPT=experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group4-lora32-temp0.5-len1024-1024-bias4.6-actemp1.0-topk30-weight0.1/checkpoint-250 \
 K=8 sbatch cluster/eval.sbatch                    # GSM8K is the default script
 
 EVAL_SCRIPT=eval_tarpo_math_avg.py K=32 BS=2 CKPT=... sbatch cluster/eval.sbatch
@@ -243,18 +315,41 @@ Two related notes:
   (upstream copy-paste). That is now `-math-`, so a MATH run and a GSM8K run
   with identical hyperparameters can no longer resume into each other.
 
+## Ablation flags added for this study
+
+Three switches beyond the paper's CLI. All three change the experiment directory
+name, so variants never collide or accidentally resume each other.
+
+| Flag | Default | What it does |
+|---|---|---|
+| `--action_kl_alpha` | 1.0 | Coefficient alpha on the action-head KL (paper Eq. 6). Effective weight is `beta * alpha`; the repo hardcoded alpha = 1. **`0.0` is the paper's w/o-Action-KL ablation** (Fig. 3a, Tables 8 & 10), previously unreachable. |
+| `--lr_action_head` | 1e-4 | Already existed. TARPO Table 6 uses 1e-4; HRPO Table 4 gives its gating parameter 1e-3. |
+| `--freeze_router` | off | Control: disables the action head's gradient so the router stays at its initialisation. Routing still happens at the fixed rate; only the *learning* of it is removed. |
+
+**Any run using these must clear the compiled cache**, because `alpha` is threaded
+through `unsloth/models/rl_replacements.py`, which unsloth bakes into
+`unsloth_compiled_cache/UnslothGRPOTrainer.py` and never overwrites:
+
+```bash
+RECOMPILE=1 ACTION_BIAS="2.2 0.0" sbatch cluster/train_gsm8k.sbatch --action_kl_alpha 0.0
+```
+
+`cluster/check_env.py` reports the cache as STALE when the vendored source is newer.
+
 ## Sizing the run
 
 * **One GPU is the right request.** This unsloth build states plainly that it
   does not support multi-GPU, so `--gres=gpu:1` (no Slack approval needed) is
   all you can use.
 * TRL requires `per_device_train_batch_size` to be divisible by `group_size`.
-  The sbatch defaults use `8 x 8 accumulation`, i.e. one prompt group per step
-  and the paper's effective batch of 64 completions. The README's
-  `--per_device_train_batch_size 64` means 64 sequences of up to 2048 tokens
-  resident at once - raise the per-device value only while watching
-  `nvidia-smi`, and drop `--max_completion_length` before dropping the group
-  size (group size is what GRPO's advantage estimate depends on).
+  Keep `gradient_accumulation_steps` at 1: the whole optimizer step's
+  completions are then sampled in one batched `generate()` call. Decoding is
+  memory-bandwidth-bound, so 32 sequences per call cost barely more per decode
+  step than 2 - splitting them across accumulation steps multiplies wall clock
+  for very little memory saved. If you must shrink, halve the per-device batch
+  and double accumulation so the total stays at the paper's 32 (GSM8K) or 64
+  (MATH), and drop `--max_completion_length` before dropping the group size
+  (group size is what GRPO's advantage estimate depends on).
 * A full epoch does not fit in 24 h on one GPU: GSM8K is 7.47k prompts and MATH
   ~7.5k, each needing 8 sampled completions with plain HF generate
   (`use_vllm=False`). Expect a day or more of wall clock per epoch even for the
@@ -265,11 +360,13 @@ Two related notes:
 
 | Symptom | Cause |
 |---|---|
-| `AttributeError: 'Qwen2ForCausalLM' object has no attribute 'action_head'` | Python imported site-packages `transformers`, not the vendored one. You are not in the repo root. |
+| `AttributeError: 'Qwen2ForCausalLM' object has no attribute 'action_head'`, or `ModuleNotFoundError: No module named 'unsloth'` | Python imported site-packages `transformers` instead of the vendored one (unsloth is deliberately never pip-installed). `sys.path[0]` is the *script's* directory, so a script outside the repo root needs `PYTHONPATH=$TARPO_DIR` - source `cluster/env.sh`. |
 | `Experiment ... already exists. Exiting...` | The experiment directory is non-empty but has no `checkpoint-*` to resume from (e.g. a run that died before step 250). Move it aside and resubmit. |
 | Job dies instantly, empty log | `logs/` did not exist when you submitted. |
 | Hangs / `ConnectionError` inside a job | Compute nodes have no internet. Everything must be pre-downloaded on the login node; jobs run with `HF_HUB_OFFLINE=1`. |
 | `ImportError: cannot import name ... from unsloth_zoo` | Wrong unsloth_zoo month. Pin inside `2025.3.17`-`2025.3.x`; a newer one expects a newer transformers than the vendored 4.50.3. |
+| `ValueError: not enough values to unpack (expected 9, got 4)` in `_prepare_inputs` | The trainer's `generate()` call needs `return_soft_metrics=True` - without it the eval-style 4-value branch is returned. Fixed in `trl/trainer/grpo_trainer.py`; if it reappears, your `unsloth_compiled_cache` is stale. |
+| An edit to `trl/` or `transformers/` seems to have no effect | unsloth generated `./unsloth_compiled_cache/UnslothGRPOTrainer.py` with `overwrite=False` and keeps reusing it. `rm -rf unsloth_compiled_cache`, or submit with `RECOMPILE=1 sbatch ...`. `check_env.py` flags this as STALE. |
 | CUDA OOM | Lower `--per_device_train_batch_size` (keeping it a multiple of `group_size`), then `--max_completion_length`. |
 | Slow/failed pip | Pass `--proxy http://squid.auckland.ac.nz:3128`, which `setup_env.sh` already does. |
 | `sbatch: error: Memory specification can not be satisfied` | Drop or lower the `#SBATCH --mem=96G` line - the partition may not do memory accounting the way these scripts assume. |

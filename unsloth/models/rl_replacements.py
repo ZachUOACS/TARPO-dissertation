@@ -256,7 +256,7 @@ RL_FUNCTIONS["grpo_trainer"].append(grpo_trainer__get_per_token_logps)
 def grpo_compute_loss(old_logits, new_logits, 
     old_action_logits, new_action_logits,
     input_ids, mask, action_mask,
-    beta, advantages, action_advantages, action_loss_weight=0.1
+    beta, advantages, action_advantages, action_loss_weight=0.1, action_kl_alpha=1.0
 ):
     # All Unsloth Zoo code licensed under LGPLv3
     old_logits = old_logits.to(torch.float32)
@@ -302,7 +302,9 @@ def grpo_compute_loss(old_logits, new_logits,
         # Action Policy Ratio
         ratio_action = torch.exp(new_act_logp - new_act_logp.detach())
         kl_action = torch.exp(old_act_logp - new_act_logp) - (old_act_logp - new_act_logp) - 1.0
-        action_loss = action_loss_weight * ratio_action * action_advantages.unsqueeze(1) - beta * kl_action
+        # paper Eq. 5-6: the action-KL coefficient is beta * alpha (alpha = 1.0 default).
+        # alpha = 0 removes the action KL entirely -- the Fig. 3a / Table 8 & 10 ablation.
+        action_loss = action_loss_weight * ratio_action * action_advantages.unsqueeze(1) - beta * action_kl_alpha * kl_action
 
         kl_total = kl_token
     
@@ -349,9 +351,10 @@ class UnslothEfficientGRPO(torch.autograd.Function):
     # All Unsloth Zoo code licensed under LGPLv3
     @staticmethod
     def forward(ctx, _new_hidden_states, _old_hidden_states, lm_head, _input_ids, _mask, _advantages, _action_advantages, beta, scaler = None, n_chunks = 1,
-                _new_action_logits = None, _old_action_logits = None, _action_mask = None, action_loss_weight=0.1):
+                _new_action_logits = None, _old_action_logits = None, _action_mask = None, action_loss_weight=0.1,
+                action_kl_alpha=1.0):
         def compute_loss(new_hidden_states, old_hidden_states, input_ids, mask, advantages, action_advantages, scaling, 
-                        new_action_logits, old_action_logits, action_mask, act_loss_weight_j):
+                        new_action_logits, old_action_logits, action_mask, act_loss_weight_j, act_kl_alpha_j):
 
             new_logits = torch.matmul(new_hidden_states, lm_head.t())
             new_logits = new_logits[:, :-1, :] # exclude the last logit: it corresponds to the next token pred
@@ -372,6 +375,7 @@ class UnslothEfficientGRPO(torch.autograd.Function):
                 beta, advantages, 
                 action_advantages,
                 act_loss_weight_j,
+                act_kl_alpha_j,
             )
             # Scale loss if needed for mixed precision training
             scaled_loss = loss * scaling
@@ -394,7 +398,7 @@ class UnslothEfficientGRPO(torch.autograd.Function):
         accumulated_mean_action_entropy = torch.zeros(1, device = device)
 
         def accumulate_chunk(new_hidden_states_j, old_hidden_states_j, new_action_logits_j, old_action_logits_j, 
-                            input_ids_j, mask_j, action_mask_j, advantages_j, action_advantages_j, scaling, act_loss_weight_j):
+                            input_ids_j, mask_j, action_mask_j, advantages_j, action_advantages_j, scaling, act_loss_weight_j, act_kl_alpha_j):
 
             (chunk_grad_input,chunk_grad_action,), (chunk_loss, (unscaled_loss, chunk_completion_length, chunk_mean_kl, chunk_mean_token_entropy, chunk_mean_action_entropy,)) = torch.func.grad_and_value(
                 compute_loss,
@@ -412,6 +416,7 @@ class UnslothEfficientGRPO(torch.autograd.Function):
                 old_action_logits_j,
                 action_mask_j,
                 act_loss_weight_j,
+                act_kl_alpha_j,
             )
             accumulated_loss             .add_(unscaled_loss)
             accumulated_completion_length.add_(chunk_completion_length)
@@ -447,6 +452,7 @@ class UnslothEfficientGRPO(torch.autograd.Function):
 
         device = _new_hidden_states.device
         act_loss_weight_t = torch.tensor(action_loss_weight, device=device)
+        act_kl_alpha_t    = torch.tensor(action_kl_alpha, device=device)
 
         # Get mixed precision scaling if seen
         scaling = scaler.get_scale() if scaler is not None else 1.0
@@ -469,7 +475,7 @@ class UnslothEfficientGRPO(torch.autograd.Function):
             chunk_grad_hidden, chunk_grad_action = accumulate_chunk(
                 new_hidden_states_j, old_hidden_states_j, new_action_logits_j, old_action_logits_j, 
                 input_ids_j, mask_j, action_mask_j, advantages_j, action_advantages_j, scaling,
-                act_loss_weight_t
+                act_loss_weight_t, act_kl_alpha_t
             )
             grad_inputs_j.copy_(chunk_grad_hidden)
             if grad_action_inputs_j is not None and chunk_grad_action is not None:
@@ -521,6 +527,7 @@ class UnslothEfficientGRPO(torch.autograd.Function):
             None,         # 11: _old_action_logits
             None,         # 12: _action_mask
             None,         # 13: action_loss_weight
+            None,         # 14: action_kl_alpha
         )
     pass
 pass
@@ -541,6 +548,7 @@ def grpo_accumulated_loss(
     action_advantages,
     n_chunks = -1,
     action_loss_weight = 0.1, 
+    action_kl_alpha = 1.0,
 ):
     # All Unsloth Zoo code licensed under LGPLv3
     bsz, qlen = input_ids.shape
@@ -585,7 +593,7 @@ def grpo_accumulated_loss(
             trainer.accelerator.scaler,
             n_chunks, 
             new_action_logits, old_action_logits, use_soft_input_mask, 
-            action_loss_weight
+            action_loss_weight, action_kl_alpha
         )
         return loss, completion_length, mean_kl, mean_token_entropy, mean_action_entropy, hidden_norm, action_norm
 
@@ -649,6 +657,7 @@ def grpo_trainer_compute_loss(function_name, function):
         action_advantages = inputs["action_advantages"]
 
         action_loss_weight = getattr(self.args, "action_loss_weight", 1.0)
+        action_kl_alpha    = getattr(self.args, "action_kl_alpha", 1.0)
 
         input_ids = input_ids[:, -logits_to_keep:]
         if per_token_logps is not None:
@@ -663,6 +672,7 @@ def grpo_trainer_compute_loss(function_name, function):
                 n_chunks = self.args.unsloth_num_chunks,
                 action_advantages = action_advantages,
                 action_loss_weight = action_loss_weight,
+                action_kl_alpha = action_kl_alpha,
             )
 
         total_len = completion_mask.float().sum(1)

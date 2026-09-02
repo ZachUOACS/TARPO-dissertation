@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/data/ztay632/TARPO-dissertation/cluster/check_env.py", line 118, in <module>
+    main()
+  File "/data/ztay632/TARPO-dissertation/cluster/check_env.py", line 78, in main
+    import unsloth  # noqa: F401  (must be imported before transformers/trl/peft)
+    ^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'unsloth'

@@ -14,6 +14,12 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAILURES = []
 
+# python puts THIS script's directory (cluster/) on sys.path, not the cwd, so the
+# vendored transformers/trl/unsloth in the repo root would otherwise be invisible
+# here. The training scripts live in the repo root and get it for free.
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
+
 
 def check(label, fn, fatal=True):
     try:
@@ -30,6 +36,27 @@ def vendored(mod):
     if not path.startswith(REPO + os.sep):
         FAILURES.append(f"{mod.__name__} not vendored")
     return f"{getattr(mod, '__version__', '?')}  [{tag}]  {path}"
+
+
+def compiled_cache_state():
+    """unsloth generates its own copy of GRPOTrainer into ./unsloth_compiled_cache
+    and never overwrites it, so an edit to the vendored trl/transformers can be
+    silently ignored. Flag the cache when it predates the sources."""
+    cache = os.path.join(REPO, "unsloth_compiled_cache")
+    if not os.path.isdir(cache):
+        return "absent (will be generated from the current source)"
+    newest_cache = max((os.path.getmtime(os.path.join(cache, f)) for f in os.listdir(cache)),
+                       default=0)
+    newest_src = 0
+    for pkg in ("trl", "transformers"):
+        for root, _, files in os.walk(os.path.join(REPO, pkg)):
+            for f in files:
+                if f.endswith(".py"):
+                    newest_src = max(newest_src, os.path.getmtime(os.path.join(root, f)))
+    if newest_src > newest_cache:
+        return ("STALE - vendored source is newer. Delete it, or submit with "
+                "RECOMPILE=1, or your edits will not take effect.")
+    return "up to date"
 
 
 def cached_gsm8k():
@@ -61,8 +88,9 @@ def main():
     print(f"WANDB_MODE     : {os.environ.get('WANDB_MODE')}")
 
     if os.getcwd() != REPO:
-        print("\n!! Run this from the repo root, otherwise the vendored packages "
-              "are not on sys.path and the ActionHead code will not be used.")
+        print("\n!! Run this from the repo root: the training and eval scripts "
+              "resolve data/MATH, ./experiments and the Qwen2.5-* model symlinks "
+              "relative to the working directory.")
         FAILURES.append("wrong cwd")
 
     print("\ncore packages")
@@ -95,6 +123,7 @@ def main():
           if os.path.isdir("data/MATH/train") else "MISSING (needed only by tarpo_math.py; "
           "run cluster/prepare_data.py)", fatal=False)
     check("gsm8k in HF cache", cached_gsm8k, fatal=False)
+    check("unsloth_compiled_cache", compiled_cache_state, fatal=False)
 
     if args.model and not args.no_gpu:
         print(f"\nloading {args.model} through unsloth (this takes a few minutes)")

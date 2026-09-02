@@ -33,6 +33,10 @@ export TOKENIZERS_PARALLELISM=false
 # --- unsloth ----------------------------------------------------------------
 export UNSLOTH_DISABLE_AUTO_UPDATES=1   # stops unsloth pip-installing at import
 export PYTHONNOUSERSITE=1
+# Belt and braces: python only puts the *script's* directory on sys.path, so a
+# helper living in cluster/ would miss the vendored transformers/trl/unsloth in
+# the repo root. This makes them win from anywhere.
+export PYTHONPATH="${TARPO_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 
 # --- Weights & Biases -------------------------------------------------------
 # The training scripts hardcode  os.environ["WANDB_PROJECT"] = "latent-reasoning"
@@ -40,7 +44,9 @@ export PYTHONNOUSERSITE=1
 export WANDB_DIR="${DATA_ROOT}/wandb"
 export WANDB_CACHE_DIR="${DATA_ROOT}/.cache/wandb"
 export WANDB_DATA_DIR="${DATA_ROOT}/.cache/wandb-data"
-export WANDB_MODE="${WANDB_MODE:-offline}"   # sync from the login node afterwards
+export WANDB_MODE="${WANDB_MODE:-online}"    # compute nodes reach wandb.ai via the proxy
+                                             # (verified job 15067); WANDB_MODE=offline +
+                                             # cluster/sync_wandb.sh is the fallback
 [ -f "${DATA_ROOT}/.wandb_key" ] && export WANDB_API_KEY="$(cat "${DATA_ROOT}/.wandb_key")"
 # export WANDB_ENTITY=your-wandb-username-or-team   # optional, put it in .wandb_entity
 [ -f "${DATA_ROOT}/.wandb_entity" ] && export WANDB_ENTITY="$(cat "${DATA_ROOT}/.wandb_entity")"

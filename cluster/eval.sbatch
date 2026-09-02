@@ -24,7 +24,7 @@ set -euo pipefail
 
 export TARPO_DIR="${TARPO_DIR:-/data/${USER}/TARPO-dissertation}"
 export HF_HUB_OFFLINE=1
-export WANDB_MODE="${WANDB_MODE:-offline}"
+export WANDB_MODE="${WANDB_MODE:-online}"
 source "${TARPO_DIR}/cluster/env.sh"
 cd "$TARPO_DIR"
 # shellcheck disable=SC1091

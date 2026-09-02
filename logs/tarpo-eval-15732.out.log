@@ -1,0 +1,102 @@
+job 15732 on foscsmlprd01  (Wed Sep  2 12:47:56 NZST 2026)
+eval: eval_tarpo_gsm8k_avg.py  base: Qwen2.5-1.5B-Instruct  k=8  batch=4
+Wed Sep  2 12:47:56 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 610.43.02              KMD Version: 610.43.02     CUDA UMD Version: 13.3     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          Off |   00000000:87:00.0 Off |                    0 |
+| N/A   28C    P0             59W /  400W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+
+>>>>>>>>>>>>>>> STEP 1: GENERATION <<<<<<<<<<<<<<<
+Loading model for generation: experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group4-lora32-temp0.5-len512-512-bias2.2-actemp1.0-topk30-weight0.1-seed42-alpha0.0/checkpoint-935
+==((====))==  Unsloth 2025.3.19: Fast Qwen2 patching. Transformers: 4.50.3.
+   \\   /|    NVIDIA A100-SXM4-80GB. Num GPUs = 1. Max memory: 79.273 GB. Platform: Linux.
+O^O/ \_/ \    Torch: 2.6.0+cu124. CUDA: 8.0. CUDA Toolkit: 12.4. Triton: 3.2.0
+\        /    Bfloat16 = TRUE. FA [Xformers = 0.0.29.post3. FA2 = False]
+ "-____-"     Free license: http://github.com/unslothai/unsloth
+
+>>>>>>>>>>>>>>> STEP 2: EVALUATION <<<<<<<<<<<<<<<
+Starting offline evaluation on experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group4-lora32-temp0.5-len512-512-bias2.2-actemp1.0-topk30-weight0.1-seed42-alpha0.0/checkpoint-935/eval_gsm8k_k8_batch4/raw_trajectories.jsonl...
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 20/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 20/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 294/
+Conversion to floating number fails: 294/
+Conversion to floating number fails: 000/
+Conversion to floating number fails: 140/
+Conversion to floating number fails: 000/
+Conversion to floating number fails: 000/
+Conversion to floating number fails: 000/
+Conversion to floating number fails: 000/
+Conversion to floating number fails: 7800/
+Conversion to floating number fails: 5/
+Conversion to floating number fails: 400/
+Conversion to floating number fails: 800/
+Conversion to floating number fails: 1200/
+Conversion to floating number fails: 800/
+Conversion to floating number fails: 800/
+Conversion to floating number fails: 1200/
+Conversion to floating number fails: 20/
+Conversion to floating number fails: 60/
+Conversion to floating number fails: 20/
+Conversion to floating number fails: 20/
+Conversion to floating number fails: 5/
+Conversion to floating number fails: 3/
+Conversion to floating number fails: 5/
+Conversion to floating number fails: 250/
+Conversion to floating number fails: 4/
+Conversion to floating number fails: 200/
+Conversion to floating number fails: 250/
+Conversion to floating number fails: 200/
+Conversion to floating number fails: 50/
+Conversion to floating number fails: 50/
+Conversion to floating number fails: 350/
+Conversion to floating number fails: 350/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 5/
+Conversion to floating number fails: 15/
+Conversion to floating number fails: 2/
+Conversion to floating number fails: 2/
+Conversion to floating number fails: 000/
+Conversion to floating number fails: 480/
+Conversion to floating number fails: 5/
+Conversion to floating number fails: 5/
+
+==================================================
+TARPO GSM8K EVALUATION SUMMARY
+==================================================
+ Avg@8:      0.6646  [95% CI: 0.6458 ~ 0.6834]
+ Pass@8:     0.9143
+ Maj@8:      0.7748
+ Variance:    0.1212
+--------------------------------------------------
+ Avg Total Len: 231.3 tokens
+ Avg Hard Len:  231.1 tokens
+ Soft Ratio:    0.09%
+==================================================
+Full metrics saved to: experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group4-lora32-temp0.5-len512-512-bias2.2-actemp1.0-topk30-weight0.1-seed42-alpha0.0/checkpoint-935/eval_gsm8k_k8_batch4/eval_metrics_final.json
+
+results written under experiments/Qwen2.5-1.5B-Instruct-gsm8k-tarpo-group4-lora32-temp0.5-len512-512-bias2.2-actemp1.0-topk30-weight0.1-seed42-alpha0.0/checkpoint-935 (Wed Sep  2 14:58:04 NZST 2026)

@@ -260,6 +260,11 @@ class GRPOConfig(TrainingArguments):
         metadata={"help": "Top k for the soft action. The higher the top k, the more likely the model will choose the soft action."},
     )
     
+    action_kl_alpha: float = field(
+        default=1.0,
+        metadata={"help": "Coefficient alpha on the action-head KL (paper Eq. 6). The effective "
+                          "action-KL weight is beta * alpha. alpha=0 removes it entirely."},
+    )
     action_loss_weight: float = field(
         default=0.1,
         metadata={"help": "Weight for the action loss. The higher the weight, the more likely the model will update the action head."},

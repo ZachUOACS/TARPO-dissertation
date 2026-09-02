@@ -574,6 +574,9 @@ class GRPOTrainer(Trainer):
                     use_mixed_rollout=True,
                     action_temperature=self.args.action_temperature,
                     soft_top_k=self.args.soft_top_k,
+                    # Without this, generate() takes the eval-style branch and
+                    # returns 4 values instead of the 9 unpacked above.
+                    return_soft_metrics=True,
                 )
 
             # Compute prompt length and extract completion ids

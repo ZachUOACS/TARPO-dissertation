@@ -1,0 +1,36 @@
+job 14923 on foscsmlprd01  (Wed Aug 19 05:24:13 NZST 2026)
+Wed Aug 19 05:24:13 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 610.43.02              KMD Version: 610.43.02     CUDA UMD Version: 13.3     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-SXM4-80GB          Off |   00000000:C7:00.0 Off |                    0 |
+| N/A   24C    P0             62W /  400W |       0MiB /  81920MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+cwd            : /data/ztay632/TARPO-dissertation
+repo           : /data/ztay632/TARPO-dissertation
+python         : 3.12.13 (/data/ztay632/envs/tarpo/bin/python3)
+HOME           : /data/ztay632
+TMPDIR         : /data/ztay632/tmp
+HF_HOME        : /data/ztay632/.cache/huggingface
+WANDB_MODE     : offline
+
+core packages
+  torch                        2.6.0+cu124 (cuda build 12.4)
+  torch.cuda.is_available      True
+  gpu                          NVIDIA A100-SXM4-80GB
+  bf16 supported               True
+
+vendored packages (must live inside the repo)
